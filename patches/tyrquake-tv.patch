@@ -1,0 +1,65 @@
+diff --git a/common/host_cmd.c b/common/host_cmd.c
+index e8b7e20..f9ab3bd 100644
+--- a/common/host_cmd.c
++++ b/common/host_cmd.c
+@@ -470,15 +470,17 @@ static void Host_SavegameComment(char *text)
+    /* Sanitize: comment is written as "%s\n" by the writer,
+     * so any embedded newline (or other control char) breaks
+     * the line-per-field savegame format and could be read
+-    * back as the next field.  Replace anything outside
+-    * printable ASCII with '_' -- defends against a
++    * back as the next field. Replace ASCII controls, spaces,
++    * and DEL with '_'. The loader consumes
++    * this field with %s, so spaces must also be escaped. This
++    * preserves the original Quake save format and defends against a
+     * maliciously crafted BSP whose worldspawn.message
+     * contains a newline reaching cl.levelname via
+     * svc_serverinfo.  In SP this is "your own" content but
+     * BSPs are user-installed and may not be trusted. */
+    for (i = 0; i < SAVEGAME_COMMENT_LENGTH; i++) {
+       unsigned char c = (unsigned char)text[i];
+-      if (c < 0x20 || c == 0x7f)
++      if (c <= 0x20 || c == 0x7f)
+          text[i] = '_';
+    }
+ 
+diff --git a/common/libretro.c b/common/libretro.c
+index a1a5558..4fea4ff 100644
+--- a/common/libretro.c
++++ b/common/libretro.c
+@@ -547,7 +547,7 @@ void retro_set_controller_port_device(unsigned port, unsigned device)
+ void retro_get_system_info(struct retro_system_info *info)
+ {
+    memset(info, 0, sizeof(*info));
+-   info->library_name     = "TyrQuake";
++   info->library_name     = "TyrQuake TV";
+ #ifndef GIT_VERSION
+ #define GIT_VERSION ""
+ #endif
+diff --git a/common/r_surf.c b/common/r_surf.c
+index 657cba6..19bb833 100644
+--- a/common/r_surf.c
++++ b/common/r_surf.c
+@@ -161,7 +161,9 @@ static void R_LightMapAccum(int *bl, const byte *lightmap, int size, unsigned sc
+    }
+    /* 4-wide cleanup for size%16 in [4..15] */
+    for (; i < batch + batch4; i += 4) {
+-      __m128i bytes = _mm_cvtsi32_si128(*(const int *)(lightmap + i));
++      int four;
++      memcpy(&four, lightmap + i, sizeof(four));
++      __m128i bytes = _mm_cvtsi32_si128(four);
+       __m128i bytes16 = _mm_unpacklo_epi8(bytes, zero);
+       __m128i bytes32 = _mm_unpacklo_epi16(bytes16, zero);
+       __m128i prod = _mm_madd_epi16(bytes32, vscale);
+@@ -192,7 +194,10 @@ static void R_LightMapAccum(int *bl, const byte *lightmap, int size, unsigned sc
+       vst1q_s32(bl + i + 12, vmlaq_s32(e3, b3, vscale));
+    }
+    for (; i < batch + batch4; i += 4) {
+-      uint32_t four = *(const uint32_t *)(lightmap + i);
++      /* BSP light samples are byte-aligned. A uint32_t cast permits an
++       * aligned NEON load, which traps on ARMv7 for these packed samples. */
++      uint32_t four;
++      memcpy(&four, lightmap + i, sizeof(four));
+       uint8x8_t b8 = vreinterpret_u8_u32(vdup_n_u32(four));
+       uint16x8_t b16 = vmovl_u8(b8);
+       int32x4_t b32 = vreinterpretq_s32_u32(vmovl_u16(vget_low_u16(b16)));
