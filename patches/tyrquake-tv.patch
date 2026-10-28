@@ -24,10 +24,47 @@ index e8b7e20..f9ab3bd 100644
     }
  
 diff --git a/common/libretro.c b/common/libretro.c
-index a1a5558..4fea4ff 100644
+index a1a5558..7ae96a9 100644
 --- a/common/libretro.c
 +++ b/common/libretro.c
-@@ -547,7 +547,7 @@ void retro_set_controller_port_device(unsigned port, unsigned device)
+@@ -205,26 +205,29 @@ gp_layout_t modern = {
+       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP,    "D-Pad Up" },
+       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN,  "D-Pad Down" },
+       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "D-Pad Right" },
+-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B,     "Swim Down" },
+-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A,     "Strafe Right" },
+-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X,     "Strafe Left" },
++      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B,     "Jump" },
++      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A,     "Swim down" },
++      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X,     "Run" },
+       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y,     "Swim Up" },
+       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L,     "Previous Weapon" },
+       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R,     "Next Weapon" },
+-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2,    "Jump" },
++      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2,    "Reserved: fast-forward" },
+       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2,    "Fire" },
+       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT,"Show Scores" },
+       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Menu" },
++      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3, "Quicksave" },
++      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3, "Quickload" },
+       { 0 },
+    },
+    {
+       {"JOY_LEFT",  "+moveleft"},     {"JOY_RIGHT", "+moveright"},
+       {"JOY_DOWN",  "+back"},         {"JOY_UP",    "+forward"},
+-      {"JOY_B",     "+movedown"},     {"JOY_A",     "+moveright"},
+-      {"JOY_X",     "+moveup"},       {"JOY_Y",     "+moveleft"},
++      {"JOY_B",     "+jump"},     {"JOY_A",     "+movedown"},
++      {"JOY_X",     "+speed"},       {"JOY_Y",     "+moveup"},
+       {"JOY_L",     "impulse 12"},    {"JOY_R",     "impulse 10"},
+-      {"JOY_L2",    "+jump"},         {"JOY_R2",    "+attack"},
++      {"JOY_L2",    ""},         {"JOY_R2",    "+attack"},
+       {"JOY_SELECT","+showscores"},   {"JOY_START", "togglemenu"},
++      {"JOY_L3", "save tvquick"}, {"JOY_R3", "load tvquick"},
+       { 0 },
+    },
+ };
+@@ -547,7 +550,7 @@ void retro_set_controller_port_device(unsigned port, unsigned device)
  void retro_get_system_info(struct retro_system_info *info)
  {
     memset(info, 0, sizeof(*info));
@@ -36,6 +73,20 @@ index a1a5558..4fea4ff 100644
  #ifndef GIT_VERSION
  #define GIT_VERSION ""
  #endif
+diff --git a/common/menu.c b/common/menu.c
+index e9ddb57..8109713 100644
+--- a/common/menu.c
++++ b/common/menu.c
+@@ -3297,6 +3297,9 @@ M_Draw(void)
+ void
+ M_Keydown(int key)
+ {
++    /* Libretro B is physical Xbox A: confirm; physical B goes back. */
++    if (key == K_JOY_B) key = K_JOY_A;
++    else if (key == K_JOY_A) key = K_JOY_B;
+     switch (m_state) {
+     case m_none:
+ 	return;
 diff --git a/common/r_surf.c b/common/r_surf.c
 index 657cba6..19bb833 100644
 --- a/common/r_surf.c
